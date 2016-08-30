@@ -3,7 +3,7 @@
 
 # ## 8/26/2016 This is a practice to use machine learning to predict admission using a dataset (http://www.ats.ucla.edu/stat/data/binary.csv)
 
-# In[1]:
+# In[97]:
 
 import pandas as pd
 import numpy as np
@@ -14,37 +14,37 @@ import time
 pd.set_option('display.max_colwidth', -1)
 
 
-# In[2]:
+# In[98]:
 
 cd "C:\Users\Zhenning\Documents\Code\practice"
 
 
-# In[3]:
+# In[99]:
 
 df = pd.read_csv("binary.csv")  # this dataset can be feteched from "http://www.ats.ucla.edu/stat/data/binary.csv"
 
 
-# In[4]:
+# In[100]:
 
 df.head()
 
 
-# In[5]:
+# In[101]:
 
 df.info()
 
 
-# In[6]:
+# In[102]:
 
 df.describe()
 
 
-# In[7]:
+# In[103]:
 
 df.shape
 
 
-# In[8]:
+# In[104]:
 
 # rename "rank" column to avoid a confliction with a dataframe method rank
 col_names = ["admit", "gre", "gpa", "reputation"]
@@ -54,7 +54,7 @@ df.head()
 
 # ## Dataset summary and look at data
 
-# In[9]:
+# In[105]:
 
 # plot each feature 
 df.hist(figsize = (10, 10))
@@ -62,41 +62,41 @@ df.hist(figsize = (10, 10))
 
 # ### The admission column, which is our label for data point, has uneven number of two groups. For machine learning, it may be worhtwile to create stratified splits for cross validation instead of simple train and test set split. 
 
-# In[10]:
+# In[106]:
 
 # calculate the majority class prediction accuracy
 admit_group = df.groupby( "admit")
 
 
-# In[11]:
+# In[107]:
 
 admit_group.describe()
 
 
-# In[12]:
+# In[108]:
 
 majority_class_pred = 127 /273.0
 print "majority class prediction", majority_class_pred
 
 
-# In[13]:
+# In[109]:
 
 df.groupby("admit").hist(figsize = (10,10))
 
 
 # ## Feature engineering: dummy variables
 
-# In[14]:
+# In[110]:
 
 dummy_rep = pd.get_dummies(df["reputation"], prefix = "reputation")
 
 
-# In[15]:
+# In[111]:
 
 dummy_rep.head()
 
 
-# In[16]:
+# In[112]:
 
 df = df.drop('reputation', axis = 1)  # drop the original reputation column
 df = df.join(dummy_rep)
@@ -105,19 +105,19 @@ df.head()
 
 # ### Create a new variable "gre_gpa", which is to multiply gre with gpa. Because both factors are important in determining the admission, it's possible that the multiplication of two will give better prediction on admission.
 
-# In[17]:
+# In[113]:
 
 df["gre_gpa"] = df['gre'] * df ['gpa']
 
 
-# In[18]:
+# In[114]:
 
 df.head()
 
 
 # ## Split dataset for training model
 
-# In[19]:
+# In[115]:
 
 from sklearn.cross_validation import StratifiedShuffleSplit
 from sklearn.cross_validation import train_test_split
@@ -125,18 +125,19 @@ from sklearn.cross_validation import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 
-# In[20]:
+# In[116]:
 
-X = df[["gre", "gpa", "gre_gpa", "reputation_1", "reputation_2", "reputation_3", "reputation_4"]]
+features = ["gre", "gpa", "gre_gpa", "reputation_1", "reputation_2", "reputation_3", "reputation_4"]
+X = df[features]
 y = df["admit"]
 
 
-# In[34]:
+# In[117]:
 
-sss = StratifiedShuffleSplit(y, n_iter = 100, test_size = 0.1, random_state = 0)
+sss = StratifiedShuffleSplit(y, n_iter = 100, test_size = 0.2, random_state = 0)
 
 
-# In[22]:
+# In[118]:
 
 # another way is to create simple train, test set split. However, this split may have issue due to unbalanced labels in two groups
 # I will create a simple train, test set for now and compare training results with sss later
@@ -146,7 +147,7 @@ y_train, y_test = train_test_split(y, test_size = 0.3, random_state =0)
 
 # ### Scale data between 0 and 1
 
-# In[23]:
+# In[119]:
 
 mms = MinMaxScaler()
 mms.fit(X)
@@ -155,12 +156,12 @@ X = mms.transform(X)
 
 # ### Create a helper function to store algorithm performance 
 
-# In[24]:
+# In[120]:
 
 from sklearn import metrics
 
 
-# In[25]:
+# In[121]:
 
 result_table = []
 def predict_score(clf, features, labels, folds = 1000):
@@ -224,7 +225,7 @@ def predict_score(clf, features, labels, folds = 1000):
 
 # ## Test a few machine learning algorithms
 
-# In[26]:
+# In[122]:
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
@@ -238,33 +239,44 @@ from sklearn.grid_search import GridSearchCV
 
 # ### 1. Logistic regression
 
-# In[35]:
+# In[123]:
 
-params = { "C":  [0.1, 1, 10, 20, 30, 40, 50, 60,70,  80, 100]}
+params = { "C":  [0.1, 1, 10, 50, 100],
+           "tol": [ 1e-1, 1e-2, 1e-3, 1e-4],
+           "class_weight": [None, "auto"]
+           }
 log_clf = LogisticRegression()
 
+t1 = time.time()
 gs_clf = GridSearchCV(log_clf, param_grid = params, scoring = "f1", cv = sss)
 gs_clf.fit(X, y)
 
+t2 = time.time()
+print "time:", (t2-t1), "second\n"
 log_clf = gs_clf.best_estimator_
 print "Best logistic regression:", log_clf
 
 
-# In[36]:
+# In[124]:
 
 predict_score(log_clf, X, y)
 
 
-# In[37]:
+# In[125]:
 
-print "coefficients:", log_clf.coef_ # it is strange that gre_gpa varialbe has negative effect on admission
+coeffs = log_clf.coef_[0]
+for ind, i in enumerate(coeffs):
+    print features[ind], ":", i
 
+
+# ### Based on the coefficients, I find that GRE, GPA have positive impact on the admission rate, as well as the school reputation in the first tier. School reputation in the second to fourth tier has a negative impact on admission rate. 
 
 # ### 2. Naive Bayes 
 
-# In[38]:
+# In[126]:
 
 nb_clf = GaussianNB()
+
 nb_clf.fit(X_train, y_train)
 
 predict_score(nb_clf, X, y)
@@ -272,82 +284,97 @@ predict_score(nb_clf, X, y)
 
 # ### 3. Decision tree
 
-# In[42]:
+# In[127]:
 
-params = { "min_samples_split":  [2, 5, 10, 20],
-           "max_depth" : [20, 25, 30,40]}
+params = { "min_samples_split":  [2, 5, 10, 20, 30],
+           "max_depth" : [5, 7, 10, 15, 20, 30,40],
+           "max_features": [1,2,3,4,5,6,7],
+           "class_weight": [None, "auto"]}
 
 tree_clf = DecisionTreeClassifier(random_state = 0)
 
+t1 = time.time()
 gs_clf = GridSearchCV(tree_clf, param_grid = params, scoring = "f1", cv = sss)
 gs_clf.fit(X, y)
+
+t2 = time.time()
+print "time:", t2-t1, "second\n"
 
 tree_clf = gs_clf.best_estimator_
 print "Best found classifier:", tree_clf
 
 
-# In[43]:
+# In[128]:
+
+print tree_clf.n_features_
+print tree_clf.feature_importances_
+
+
+# In[129]:
 
 predict_score(tree_clf, X, y)
 
 
 # ### 4. Adaboost
 
-# In[44]:
+# In[137]:
 
 # Ensemble method, Adaboost
 t1= time.time()
-params = { "n_estimators": [10, 50, 100, 200, 400],
-           "learning_rate": [0.1, 1, 5]}
+params = { "n_estimators": [5, 10, 50, 100],
+           "learning_rate": [0.1, 1, 10, 50]}
 
-adaboost_clf = AdaBoostClassifier(random_state = 0)
+adaboost_clf = AdaBoostClassifier(base_estimator= DecisionTreeClassifier(class_weight= "auto"), random_state = 0)
 
 gs_clf = GridSearchCV(adaboost_clf, param_grid = params, scoring = "f1", cv = sss)
 gs_clf.fit(X, y)
 
+t2= time.time()
+print "time", t2-t1, "seconds\n"
+
 adaboost_clf = gs_clf.best_estimator_
 print "Best found classifier:", adaboost_clf
-t2= time.time()
-print "time", t2-t1
 
 
-# In[45]:
+# In[138]:
 
 predict_score(adaboost_clf, X, y)
 
 
 # ### 5. Random Forest
 
-# In[46]:
+# In[132]:
 
 #  Random forest: fits a number of decision tree classifiers on various sub-samples of the dataset and 
 # use averaging to improve the predictive accuracy and control over-fitting
 t1= time.time()
-params = {"n_estimators": [10, 25, 50, 75, 100],
-          "min_samples_split": [ 2, 5, 7, 10, 20]}
+params = {"n_estimators": [ 25, 50, 75, 100],
+          "min_samples_split": [1, 2, 5, 10, 20, 30],
+          "max_depth": [10, 50, 75, 100]}
 
-rf_clf = RandomForestClassifier(random_state = 0)
+rf_clf = RandomForestClassifier(random_state = 0, class_weight = "auto")
 
 gs_clf = GridSearchCV(rf_clf, param_grid = params, scoring = "f1", cv =sss)
 gs_clf.fit(X, y)
 
+t2= time.time()
+print "time", t2-t1, "second\n"
+
 rf_clf = gs_clf.best_estimator_
 print "Best found classifier:", rf_clf
-t2= time.time()
-print "time", t2-t1
 
 
-# In[47]:
+# In[133]:
 
 predict_score(rf_clf, X, y)
 
 
 # ### 6. K Nearest Neighbors
 
-# In[48]:
+# In[139]:
 
 t1= time.time()
-params = {"n_neighbors": [3, 5, 10, 15, 20],
+params = {"n_neighbors": [3,4, 5,6,7, 10, 15, 20],
           "weights": ["uniform", "distance"]}
 
 KNN_clf = KNeighborsClassifier()
@@ -356,13 +383,14 @@ gs_clf = GridSearchCV(KNN_clf, param_grid = params, scoring = "f1", cv =sss)
 
 gs_clf.fit(X, y)
 
+t2= time.time()
+print "time", t2-t1, "second\n"
+
 KNN_clf = gs_clf.best_estimator_
 print "Best found classifier:", KNN_clf
-t2= time.time()
-print "time", t2-t1
 
 
-# In[49]:
+# In[140]:
 
 predict_score(KNN_clf, X, y)
 
@@ -370,7 +398,7 @@ predict_score(KNN_clf, X, y)
 # ## Summary
 # ### In this practice, I tried a few different classifiers in sklearn and found that K Nearest Neighbors (k=10) gives the best prediction on this dataset. 
 
-# In[50]:
+# In[136]:
 
 #!ipython nbconvert --to python Prediction_Student_Admission.ipynb
 
